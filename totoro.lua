@@ -95,6 +95,7 @@ end
 -- setUmbrella reads the JSON response from the API and extracts the weather for the
 -- next 6 hours and updates the umbrella LED colors
 function setUmbrella(code, data)
+   print(code, data)
    if code == 200 then
       local ok, p = pcall(cjson.decode, data)
       if ok and p ~= nil then
@@ -149,11 +150,12 @@ function setUmbrella(code, data)
          -- Hail:          19, 20, 21                           1
          -- Light rain:     9, 10, 11, 12                       2
          -- Sleet or snow: 16, 17, 18, 22, 23, 24, 25, 26, 27   3
+         -- Sun:           1                                    4
          
          -- Note because Lua arrays actually start at one looking up in this array is done by adding
          -- 1 to the weather code returned by the Met Office.
          --             0,   1    2    3    4    5    6    7    8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 
-         local pri = {nil, nil, nil, nil, nil, nil, nil, nil, nil, 2, 2, 2, 2, 0, 0, 0, 3, 3, 3, 1, 1, 1, 3, 3, 3, 3, 3, 3, 0, 0}
+         local pri = {nil,   4, nil, nil, nil, nil, nil, nil, nil, 2, 2, 2, 2, 0, 0, 0, 3, 3, 3, 1, 1, 1, 3, 3, 3, 3, 3, 3, 0, 0}
 
          local p
          if keys[1] ~= nil then p = pri[t[keys[1]]+1] end
@@ -165,13 +167,19 @@ function setUmbrella(code, data)
          elseif p == 1 then led(white, black)
          elseif p == 2 then led(blue, blue)
          elseif p == 3 then led(white, white)
+         elseif p == 4 then led(yellow, yellow)
          else led(black, black)
          end
+         return
       end
    end
+
+   -- If there's an API failure of some sort flash red/blue
+
+   led(red, blue)
 end
 
--- Connect to WiFi and then every minute get the latest weather forecast
+-- Connect to WiFi and then every 30 minutes get the latest weather forecast
 
 ws2812.init()
 tmr.alarm(0, 500, tmr.ALARM_AUTO, update)
