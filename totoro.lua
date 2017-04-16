@@ -1,7 +1,7 @@
 -- totoro.lua
 --
 -- Small program to get the weather forecast for a location and turn
--- on two LEDs that will illuminate Totoro's umbrella if it is going to
+-- on two LEDs that will illuminate Totoro's eyes if it is going to
 -- rain, hail or snow within the next 6 hours.
 --
 -- Copyright (c) 2017 John Graham-Cumming
@@ -26,6 +26,9 @@ local green = string.char(255, 0, 0)
 local yellow = string.char(255, 255, 0)
 local white = string.char(255, 255, 255)
 local black = string.char(0, 0, 0)
+
+local month = {Jan="01", Feb="02", Mar="03", Apr="04", May="05", Jun="06",
+               Jul="07", Aug="08", Sep="09", Oct="10", Nov="11", Dec="12"}
 
 -- connectWifi connects to the WiFi network defined above as a station
 -- This will try to connect for 30 seconds and then give up
@@ -68,7 +71,7 @@ end
 local color = {black, black}
 local current
 
--- led sets the two LED colors that will illuminate the umbrella
+-- led sets the two LED colors that will illuminate the eyes
 function led(c0, c1) 
    color[1] = c0
    color[2] = c1
@@ -86,17 +89,16 @@ function update()
 end
 
 -- getForecast calls the MetOffice API for the defined location and then calls
--- setUmbrella with the JSON response or error code
+-- setEyes with the JSON response or error code
 function getForecast()
    led(green, black)
-   http.get(api .. config.LOCATION .. "?res=3hourly&key=" .. config.KEY, nil, setUmbrella)
+   http.get(api .. config.LOCATION .. "?res=3hourly&key=" .. config.KEY, nil, setEyes)
 end
 
--- setUmbrella reads the JSON response from the API and extracts the weather for the
--- next 6 hours and updates the umbrella LED colors
-function setUmbrella(code, data)
-   print(code, data)
-   if code == 200 then
+-- setEyes reads the JSON response from the API and extracts the weather for the
+-- next 6 hours and updates the eye LED colors
+function setEyes(code, data, headers)
+   if code == 200 and headers ~= nil then
       local ok, p = pcall(cjson.decode, data)
       if ok and p ~= nil then
          local siterep = p.SiteRep
@@ -128,11 +130,26 @@ function setUmbrella(code, data)
          -- 2017-03-08Z1800     7
          -- 2017-03-08Z2100     7
 
+         -- The Met Office API sometimes returns forecast data for time periods
+         -- prior to the current time. These need to be removed. Luckily, the 
+         -- Met Office web server returns the current UTC date/time in the
+         -- Date HTTP header. 
+         --
+         --       1    2  3   4    5
+         -- Date: Sun, 16 Apr 2017 14:13:16 GMT
+
+         local d, m, y, h = string.match(headers.date, ", (%d+) (%a%a%a) (%d%d%d%d) (%d+):")
+         local notbefore = y .. "-" .. month[m] .. "-" .. string.format("%02d", tonumber(d)) .. "Z" ..
+            string.format("%02d00", (tonumber(h)/3)*3) -- Relies on firmware using integer arithmetic
+
          local t = {}
          for unused0, p in ipairs(period) do
             if p.value ~= nil and p.Rep ~= nil then
                for unused1, r in ipairs(p.Rep) do
-                  t[p.value .. string.format("%02d00", r["$"]/60)] = r.W
+                  local ti = p.value .. string.format("%02d00", r["$"]/60)
+                  if ti >= notbefore then
+                     t[ti] = r.W
+                  end
                end
             end
          end
