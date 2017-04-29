@@ -30,9 +30,29 @@ local black = string.char(0, 0, 0)
 local month = {Jan="01", Feb="02", Mar="03", Apr="04", May="05", Jun="06",
                Jul="07", Aug="08", Sep="09", Oct="10", Nov="11", Dec="12"}
 
+-- Count of number of getForecast failures
+
+local failures = 0
+
+-- setLED sets the appropriate LED color on the two LEDs
+local function setLED(c)
+  ws2812.write(c .. c)
+end
+
+local color = {black, black}
+local current
+
+-- led sets the two LED colors that will illuminate the eyes
+local function led(c0, c1) 
+   color[1] = c0
+   color[2] = c1
+   current = 0
+   setLED(color[current+1])
+end
+
 -- connectWifi connects to the WiFi network defined above as a station
 -- This will try to connect for 30 seconds and then give up
-function connectWifi()
+local function connectWifi()
    led(yellow, black)
    wifi.setmode(wifi.STATION)
 
@@ -63,41 +83,18 @@ end
 
 local api = "http://datapoint.metoffice.gov.uk/public/data/val/wxfcs/all/json/"
 
--- setLED sets the appropriate LED color on the two LEDs
-function setLED(c)
-  ws2812.write(c .. c)
-end
-
-local color = {black, black}
-local current
-
--- led sets the two LED colors that will illuminate the eyes
-function led(c0, c1) 
-   color[1] = c0
-   color[2] = c1
-   current = 0
-   setLED(color[current+1])
-end
-
 -- update sets the LED to the current value and swaps the value for the
 -- next update
-function update() 
+local function update() 
    if color[0] == color[1] then return end
 
    setLED(color[current+1])
    current = 1 - current
 end
 
--- getForecast calls the MetOffice API for the defined location and then calls
--- setEyes with the JSON response or error code
-function getForecast()
-   led(green, black)
-   http.get(api .. config.LOCATION .. "?res=3hourly&key=" .. config.KEY, nil, setEyes)
-end
-
 -- setEyes reads the JSON response from the API and extracts the weather for the
 -- next 6 hours and updates the eye LED colors
-function setEyes(code, data, headers)
+local function setEyes(code, data, headers)
    if code == 200 and headers ~= nil then
       local ok, p = pcall(cjson.decode, data)
       if ok and p ~= nil then
@@ -187,13 +184,31 @@ function setEyes(code, data, headers)
          elseif p == 4 then led(yellow, yellow)
          else led(black, black)
          end
+
+         failures = 0
          return
       end
    end
 
    -- If there's an API failure of some sort flash red/blue
 
+   failures = failures + 1
    led(red, blue)
+end
+
+-- getForecast calls the MetOffice API for the defined location and then calls
+-- setEyes with the JSON response or error code
+local function getForecast()
+   led(green, black)
+   http.get(api .. config.LOCATION .. "?res=3hourly&key=" .. config.KEY, nil, setEyes)
+end
+
+-- watchdog resets Totoro if there hasn't been a successful forecast for
+-- 5 minutes
+local function watchdog()
+   if failures == 5 then
+      node.restart()
+   end
 end
 
 -- Connect to WiFi and then every 30 minutes get the latest weather forecast
@@ -203,7 +218,7 @@ tmr.alarm(0, 500, tmr.ALARM_AUTO, update)
 
 connectWifi()
 
-getForecast()
-tmr.alarm(2, 1*60*1000, tmr.ALARM_AUTO, getForecast)
+tmr.alarm(2, 1*60*1000, tmr.ALARM_AUTO, watchdog)
+tmr.alarm(3, 1*60*1000, tmr.ALARM_AUTO, getForecast)
 
 dummy.run(0) -- TEST_ONLY
