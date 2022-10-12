@@ -85,4 +85,10 @@ function _M.write(s)
    io.flush()
 end
 
+-- Dummy node
+
+function _M.restart()
+end
+
+
 return _M

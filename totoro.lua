@@ -17,6 +17,7 @@ local http = dummy -- TEST_ONLY
 local tmr = dummy -- TEST_ONLY
 local cjson = dummy -- TEST_ONLY
 local ws2812 = dummy -- TEST_ONLY
+local node = dummy -- TEST_ONLY
 
 -- The LED strip used takes the colors in the order (G, R, B)
 
@@ -169,7 +170,7 @@ local function getForecast()
 end
 
 -- watchdog resets Totoro if there hasn't been a successful forecast for
--- 5 minutes
+-- five minutes
 local function watchdog()
    if failures == 5 then
       node.restart()
