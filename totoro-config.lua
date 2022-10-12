@@ -1,6 +1,6 @@
 -- totoro-config.lua
 --
--- Configuration of WiFi parameters, MetOffice weather location
+-- Configuration of WiFi parameters
 
 local _M = {}
 
@@ -9,12 +9,8 @@ local _M = {}
 _M.SSID = ""
 _M.PASS = ""
 
--- The location to get weather for and the MetOffice API key
---
--- To get a KEY visit http://www.metoffice.gov.uk/datapoint and
--- register. See also http://www.metoffice.gov.uk/datapoint/api
+-- IPMA location ID
 
-_M.LOCATION = ""
-_M.KEY = ""
+_M.IPMA = 0
 
 return _M
